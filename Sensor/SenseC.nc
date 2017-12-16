@@ -21,6 +21,8 @@ implementation {
 	uint16_t temperature;
 	uint16_t humidity;
 	uint16_t timer_period = 100;
+	uint16_t SHT_sequence = 1;
+	uint16_t Lig_sequence = 1;
 
 	event void Boot.booted() 
 	{
@@ -69,8 +71,11 @@ implementation {
 				btrpkt->type = 0x01;
 				btrpkt->temperature = temperature;
 				btrpkt->humidity = humidity;
+				btrpkt->sequence = SHT_sequence;
+				btrpkt->recordingTime = Timer0.getNow();
+				SHT_sequence = SHT_sequence + 1;
 				temdone = FALSE;
-				if (call RadioSend.send(1, &pkt, sizeof(SHTMsg)) == SUCCESS) {
+				if (call RadioSend.send(0, &pkt, sizeof(SHTMsg)) == SUCCESS) {
 					busy = TRUE;
 				}
 			}
@@ -85,7 +90,10 @@ implementation {
 				btrpkt->nodeid = TOS_NODE_ID;
 				btrpkt->type = 0x02;
 				btrpkt->light = data;
-				if (call RadioSend.send(1, &pkt, sizeof(LigMsg)) == SUCCESS) {
+				btrpkt->sequence = Lig_sequence;
+				btrpkt->recordingTime = Timer0.getNow();
+				Lig_sequence = Lig_sequence + 1;
+				if (call RadioSend.send(0, &pkt, sizeof(LigMsg)) == SUCCESS) {
 					busy = TRUE;
 				}
 			}
