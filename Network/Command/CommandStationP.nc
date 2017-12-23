@@ -1,7 +1,7 @@
 #include "CommandProtocol.h"
 
 typedef struct {
-    uint8_t moteId;
+    uint16_t moteId;
     bool isAcked;
 }AckStatus;
 module CommandStationP {
@@ -20,13 +20,17 @@ module CommandStationP {
     } 
 }
 implementation {
-    uint8_t moteIdList[] = MOTE_ID_LIST;
+    uint16_t moteIdList[] = MOTE_ID_LIST;
     message_t cmdBuffer;
     uint8_t seqCurrent = 0;     //当前发送命令的序列号,起始为０
     AckStatus ackList[sizeof(moteIdList)];
     uint8_t numAcked;       //记录总共收到多少个ack的辅助变量
     uint8_t moteCount = sizeof(moteIdList);     //记录节点数目的常量
-    
+
+
+    uint8_t idxMoteSend;
+    task void sendCmdP2P();
+
     void resetAckList(){
         uint8_t i;
         for(i = 0; i < moteCount; ++i){
@@ -44,23 +48,34 @@ implementation {
         if(numAcked < moteCount){
             return EBUSY;
         }
+        idxMoteSend = 0;
+        numAcked = 0;
+        //准备commandMsg的内容，以后只进行发送
         pMsg = (CommandMsg*)(call Packet.getPayload(&cmdBuffer, sizeof(CommandMsg)));
         pMsg->magic = MAGIC_NUM_CMD;
         pMsg->seq = seqCurrent;
         pMsg->cmd = cmd;
-        call AMSend.send(AM_BROADCAST_ADDR, &cmdBuffer, sizeof(CommandMsg));
+        //所有节点都置为未ack
         resetAckList();
+        post sendCmdP2P();
         return SUCCESS;
     }
     event void AMSend.sendDone(message_t* msg, error_t err){
-        call Timer.startOneShot(EXPIRE); //启动计时器
+        if(idxMoteSend < moteCount){
+            //保证发送的串行化
+            post sendCmdP2P();
+        }
+        else{
+            Timer.startOneShot(EXPIRE);
+        }
     }
     event void Timer.fired(){
         if(numAcked == moteCount){
             return;
         }
-        //重新广播
-        call AMSend.send(AM_BROADCAST_ADDR, &cmdBuffer, sizeof(CommandMsg));
+        //重启发送任务
+        idxMoteSend = 0;
+        post sendCmdP2P();
     }
     event message_t *Receive.receive(message_t* msg, void* payload, uint8_t len){
         MoteAck* pAck = (MoteAck*)payload;
@@ -70,7 +85,6 @@ implementation {
             return msg;
         seqAck = pAck->seq;
         idAck = pAck->Id;
-        //printf("seqAck:%u, idAck:%u, seqCurrent:%u\n", seqAck, idAck, seqCurrent);
         if(seqAck == seqCurrent){
             for(i = 0; i < moteCount; ++i){
                 if(ackList[i].moteId == idAck && !ackList[i].isAcked){
@@ -80,13 +94,22 @@ implementation {
             }
         }
         if(numAcked == moteCount){
-            //printf("all received\n");
             //更新序列号
             ++seqCurrent;
             seqCurrent &= 1;
             signal Station.commandSendDone();
         }
-        //printfflush();
         return msg;
+    }
+    task void sendCmdP2P(){
+        if(idxMoteSend >= moteCount)
+            return;
+        while(idxMoteSend < moteCount && ackList[idxMoteSend].isAcked){
+            ++idxMoteSend;
+        }
+        if(idxMoteSend >= moteCount)
+            return;
+        call AMSend.send(moteIdList[idxMoteSend], &cmdBuffer, sizeof(CommandMsg));
+        ++idxMoteSend;
     }
 }
