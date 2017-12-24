@@ -2,15 +2,24 @@
 module CommandMoteP {
     uses {
         interface Receive;
-        interface Boot;
-        interface AMPacket;
-        interface Packet;
         interface AMSend;
-        interface Leds;
+        interface Packet;
     }
     provides interface CommandMoteInterface;
 }
-
+implementation {
+    event message_t* Receive.receive(message_t *msg, void* payload, uint8_t len){
+        CommandMsg *pCmd = (CommandMsg*)payload;
+        if(len != sizeof(CommandMsg) || pCmd->magic != MAGIC_NUM_CMD){
+            return msg;
+        }
+        signal CommandMoteInterface.newCommand(pCmd->cmd);
+        return msg;
+    }
+    event void AMSend.sendDone(message_t* msg, error_t err){
+    }
+}
+/*
 implementation {
     uint8_t seqCurrent = 0; //当前期望的序列号
     bool busy = FALSE;
@@ -51,3 +60,4 @@ implementation {
         busy = FALSE;
     }
 }
+*/
