@@ -40,8 +40,9 @@ implementation {
             //在sendDone函数中会再次触发sendTask
             post sendTask();
         }
+        return SUCCESS;
     }
-    void sendTask(){
+    task void sendTask(){
         if(queLenght == 0){
             busy = FALSE;
             return;
