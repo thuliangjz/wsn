@@ -6,7 +6,7 @@
 
 
 typedef nx_struct {
-    nx_uint16_t time;
+    nx_uint32_t time;
 }Command;
 
 typedef nx_struct {

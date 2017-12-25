@@ -1,6 +1,4 @@
 #include "CommandProtocol.h"
-#include "printf.h"
-
 typedef struct {
     uint16_t moteId;
     bool isAcked;

@@ -1,4 +1,4 @@
-configuration SenseAppC
+/*configuration SenseAppC
 {}
 implementation
 {
@@ -18,7 +18,8 @@ implementation
 	Sensor.RadioAMPacket->AMSenderC;
 	Sensor.RadioControl->ActiveMessageC;
 	Sensor.RadioReceive->AMReceiverC;
+	
 	Sensor.TemRead->Sht11.Temperature;
 	Sensor.HumRead->Sht11.Humidity;
 	Sensor.LigRead->HamamatsuS1087ParC;
-}
+}*/
