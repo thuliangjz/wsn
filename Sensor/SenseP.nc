@@ -12,7 +12,8 @@ implementation {
     uint16_t seq = 0;
     bool reading = FALSE;
     command error_t SenseInterface.setSenseInterval(uint32_t interval){
-        Timer.startPeriodic(interval);
+        call Timer.startPeriodic(interval);
+        return SUCCESS;
     }
     event void Timer.fired(){
         if(reading)
