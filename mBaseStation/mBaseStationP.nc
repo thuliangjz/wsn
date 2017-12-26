@@ -50,7 +50,7 @@ implementation
   }
 
   void failBlink() {
-    call Leds.led2Toggle();
+    //call Leds.led2Toggle();
   }
 
   event void Boot.booted() {
@@ -125,10 +125,6 @@ implementation
 
   
   task void uartSendTask() {
-    uint8_t len;
-    am_id_t id;
-    am_addr_t addr, src;
-    message_t* msg;
     atomic
       if (uartIn == uartOut && !uartFull) {
         uartBusy = FALSE;
@@ -155,13 +151,9 @@ implementation
   }
 
   event message_t *UartReceive.receive[am_id_t id](message_t *msg, void *payload, uint8_t len) {
-    message_t *ret = msg;
-    bool reflectToken = FALSE;
-
+    call Leds.led0Toggle();
     atomic
       if (!radioFull) {
-        reflectToken = TRUE;
-        ret = radioQueue[radioIn];
         radioQueue[radioIn] = msg;
         if (++radioIn >= RADIO_QUEUE_LEN)
           radioIn = 0;
@@ -174,17 +166,13 @@ implementation
         }
 	    } else
 	      dropBlink();
-
-    if (reflectToken) {
-      //call UartTokenReceive.ReflectToken(Token);
-    }
     
-    return ret;
+    return msg;
   }
 
   task void radioSendTask() {
     Command cmd;
-    ModifyMsg* modifyPkt;
+    Command* cmdPkt;
     
     atomic {
       if (radioIn == radioOut && !radioFull) {
@@ -193,13 +181,12 @@ implementation
 	    }
     }
 
-    modifyPkt = (ModifyMsg*)(call UartPacket.getPayload(radioQueue[radioOut], sizeof(ModifyMsg)));
-    cmd.time = modifyPkt->new_period;
+    cmdPkt = (Command*)(call UartPacket.getPayload(radioQueue[radioOut], sizeof(Command)));
+    cmd.time = cmdPkt->time;
     
     if (call RadioSend.sendCommand(cmd) == SUCCESS){
-      
+      call Leds.led0Toggle();
     }
-      //call Leds.led0Toggle();
     else {
 	    failBlink();
 	    post radioSendTask();
