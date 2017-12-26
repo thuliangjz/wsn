@@ -1,0 +1,3 @@
+COMPONENT=BlinkToComputeC
+include $(MAKERULES)
+
