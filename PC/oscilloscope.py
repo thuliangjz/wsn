@@ -78,5 +78,7 @@ class BasePlot(object):
         if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
             self.app.exec_()   
 
-plot = BasePlot()
-plot.start()
+#plot = BasePlot()
+#plot.start()
+t = serial.Serial('/dev/ttyUSB0', 115200)
+t.write('Hello')
