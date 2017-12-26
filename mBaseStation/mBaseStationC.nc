@@ -1,9 +1,12 @@
+#define NEW_PRINTF_SEMANTICS
+#include "printf.h"
 configuration mBaseStationC {
 }
 implementation {
   components MainC, mBaseStationP, LedsC;
+  components PrintfC, SerialStartC;
   components CommandStationC as RadioSender;
-  components new DataTransferC(0) as RadioReceiver;
+  components new DataTransferC(10000) as RadioReceiver;
   components ActiveMessageC as Radio;
   components SerialActiveMessageC as Serial;
   
@@ -12,10 +15,10 @@ implementation {
   mBaseStationP.RadioControl -> Radio;
   mBaseStationP.SerialControl -> Serial;
   
-  mBaseStationP.UartSend -> Serial;
+  mBaseStationP.UartSend -> Serial.AMSend;
   mBaseStationP.UartReceive -> Serial.Receive;
-  mBaseStationP.UartPacket -> Serial;
   mBaseStationP.UartAMPacket -> Serial;
+  mBaseStationP.UartPacket -> Serial;
   
   mBaseStationP.RadioSend -> RadioSender.cmdSender;
   mBaseStationP.RadioReceive -> RadioReceiver.DataTransferInterface;

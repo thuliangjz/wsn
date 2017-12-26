@@ -3,6 +3,7 @@
 #include "CommandProtocol.h"
 #include "DataTransferProtocol.h"
 #include "msgDefine.h"
+#include "printf.h"
 
 module mBaseStationP @safe() {
   uses {
@@ -45,7 +46,7 @@ implementation
   task void radioSendTask();
 
   void dropBlink() {
-    call Leds.led2Toggle();
+    //call Leds.led2Toggle();
   }
 
   void failBlink() {
@@ -89,15 +90,27 @@ implementation
   uint8_t count = 0;
 
   event void RadioReceive.dataReceived(SensorData data) {
-    atomic {
+     /*
+      printf("id: %u, seq:%u, hum:%u, light:%u tem:%u, time:%u\n",
+      data.id,
+      data.seq, 
+      data.humidity,
+      data.light,
+      data.temperature,
+      data.timestamp);
+      */
+      atomic {
       if (!uartFull){
         SensorData* sensorPkt = (SensorData*)(call RadioPacket.getPayload(&uartQueueBufs[uartIn], sizeof(SensorData)));
+        sensorPkt->id = data.id;
         sensorPkt->seq = data.seq;
         sensorPkt->humidity = data.humidity;
         sensorPkt->light = data.light;
         sensorPkt->temperature = data.temperature;
+        sensorPkt->timestamp = data.timestamp;
         uartIn = (uartIn + 1) % UART_QUEUE_LEN;
-      
+
+        //call Leds.led2Toggle();
         if (uartIn == uartOut)
           uartFull = TRUE;
 
@@ -110,7 +123,6 @@ implementation
     }
   }
 
-  uint8_t tmpLen;
   
   task void uartSendTask() {
     uint8_t len;
@@ -123,15 +135,7 @@ implementation
         return;
 	    }
 
-    msg = uartQueue[uartOut];
-    tmpLen = len = call RadioPacket.payloadLength(msg);
-    id = call RadioAMPacket.type(msg);
-    addr = call RadioAMPacket.destination(msg);
-    src = call RadioAMPacket.source(msg);
-    call UartPacket.clear(msg);
-    call UartAMPacket.setSource(msg, src);
-
-    if (call UartSend.send[id](addr, uartQueue[uartOut], len) == SUCCESS)
+    if (call UartSend.send[0x30](AM_BROADCAST_ADDR, uartQueue[uartOut], sizeof(SensorData)) == SUCCESS)
       call Leds.led1Toggle();
     else {
       failBlink();
@@ -143,13 +147,10 @@ implementation
     if (error != SUCCESS)
       failBlink();
     else
-      atomic
-	  if (msg == uartQueue[uartOut]){
-	    if (++uartOut >= UART_QUEUE_LEN)
-	      uartOut = 0;
-	    if (uartFull)
-	      uartFull = FALSE;
-	  }
+      atomic {
+        uartOut = (uartOut + 1) % UART_QUEUE_LEN;
+        uartFull = FALSE;
+      }
     post uartSendTask();
   }
 
@@ -192,11 +193,13 @@ implementation
 	    }
     }
 
-    modifyPkt = (ModifyMsg*)(call UartPacket.getPayload(&radioQueue[radioOut], sizeof(ModifyMsg)));
+    modifyPkt = (ModifyMsg*)(call UartPacket.getPayload(radioQueue[radioOut], sizeof(ModifyMsg)));
     cmd.time = modifyPkt->new_period;
     
-    if (call RadioSend.sendCommand(cmd) == SUCCESS)
-      call Leds.led0Toggle();
+    if (call RadioSend.sendCommand(cmd) == SUCCESS){
+      
+    }
+      //call Leds.led0Toggle();
     else {
 	    failBlink();
 	    post radioSendTask();
