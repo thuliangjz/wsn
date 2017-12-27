@@ -5,10 +5,12 @@ import numpy as np
 import signal
 import sys
 import tos
+import threading
 
 AM_OSCILLOSCOPE = 0x30
 am = tos.AM()
 stream_data = ['0', '0', '0', '0', '0', '0']
+t = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
 
 class OscilloscopeMsg(tos.Packet):
     def __init__(self, packet = None):
@@ -69,16 +71,24 @@ class BasePlot(object):
             line.yDisp = None
             line.updateItems()
             line.sigPlotChanged.emit(line)
+    
+    def changePeriod(self):
+        while True:
+            period = int(input('Please enter new period:'))
+            print(period)
  
     def start(self):
         self.plot_init()
+        t1 = threading.Thread(target=self.changePeriod)
+        t1.start()
         timer = QtCore.QTimer()
-        timer.timeout.connect(self.update)
-        timer.start(0)   
+        #timer.timeout.connect(self.update)
+        #timer.start(0)   
         if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-            self.app.exec_()   
+            self.app.exec_()
 
-#plot = BasePlot()
-#plot.start()
-t = serial.Serial('/dev/ttyUSB0', 115200)
-t.write('Hello')
+#if __name__ == '__main__':
+plot = BasePlot()
+plot.start()
+#while True:
+#    t.write(b'65535')
