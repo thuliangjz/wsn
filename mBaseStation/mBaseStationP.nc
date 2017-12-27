@@ -21,7 +21,7 @@ module mBaseStationP @safe() {
     interface Packet as RadioPacket;
     interface AMPacket as RadioAMPacket;
 
-    interface AMSend as TestSend;
+    // interface AMSend as TestSend;
 
     interface Leds;
   }
@@ -187,30 +187,29 @@ implementation
     cmdPkt = (Command*)(call UartPacket.getPayload(radioQueue[radioOut], sizeof(Command)));
     cmd.time = cmdPkt->time;
     
-    // if (call RadioSend.sendCommand(cmd) == SUCCESS){
-    //   call Leds.led0Toggle();
-    // }
-    // else {
-	  //   failBlink();
-	  //   post radioSendTask();
-    // }
-
-    if ((call TestSend.send(AM_BROADCAST_ADDR, radioQueue[radioOut], sizeof(Command))) == SUCCESS) {
+    if (call RadioSend.sendCommand(cmd) == SUCCESS){
       call Leds.led0Off();
     } else {
-      failBlink();
-      post radioSendTask();
+	    failBlink();
+	    post radioSendTask();
     }
+
+    // if ((call TestSend.send(AM_BROADCAST_ADDR, radioQueue[radioOut], sizeof(Command))) == SUCCESS) {
+    //   call Leds.led0Off();
+    // } else {
+    //   failBlink();
+    //   post radioSendTask();
+    // }
   }
 
-  event void TestSend.sendDone(message_t *msg, error_t error) {
-    if (++radioOut >= RADIO_QUEUE_LEN)
-      radioOut = 0;
-    if (radioFull)
-      radioFull = FALSE;
+  // event void TestSend.sendDone(message_t *msg, error_t error) {
+  //   if (++radioOut >= RADIO_QUEUE_LEN)
+  //     radioOut = 0;
+  //   if (radioFull)
+  //     radioFull = FALSE;
   
-    post radioSendTask();
-  }
+  //   post radioSendTask();
+  // }
 
   event void RadioSend.commandSendDone() {
     if (++radioOut >= RADIO_QUEUE_LEN)
