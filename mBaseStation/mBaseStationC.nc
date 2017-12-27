@@ -9,6 +9,7 @@ implementation {
   components new DataTransferC(10000) as RadioReceiver;
   components ActiveMessageC as Radio;
   components SerialActiveMessageC as Serial;
+  components new AMSenderC(0x30);
   
    mBaseStationP -> MainC.Boot;
 
@@ -24,6 +25,8 @@ implementation {
   mBaseStationP.RadioReceive -> RadioReceiver.DataTransferInterface;
   mBaseStationP.RadioPacket -> Radio.Packet;
   mBaseStationP.RadioAMPacket -> Radio.AMPacket;
+
+  mBaseStationP.TestSend -> AMSenderC;
   
   mBaseStationP.Leds -> LedsC;
 }
