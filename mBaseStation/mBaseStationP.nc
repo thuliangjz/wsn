@@ -3,6 +3,7 @@
 #include "CommandProtocol.h"
 #include "DataTransferProtocol.h"
 #include "msgDefine.h"
+#include "printf.h"
 
 module mBaseStationP @safe() {
   uses {
@@ -19,6 +20,8 @@ module mBaseStationP @safe() {
     interface DataTransferInterface as RadioReceive;
     interface Packet as RadioPacket;
     interface AMPacket as RadioAMPacket;
+
+    // interface AMSend as TestSend;
 
     interface Leds;
   }
@@ -45,11 +48,11 @@ implementation
   task void radioSendTask();
 
   void dropBlink() {
-    call Leds.led2Toggle();
+    //call Leds.led2Toggle();
   }
 
   void failBlink() {
-    call Leds.led2Toggle();
+    //call Leds.led2Toggle();
   }
 
   event void Boot.booted() {
@@ -69,6 +72,7 @@ implementation
 
     call RadioControl.start();
     call SerialControl.start();
+    call Leds.led0Off();
   }
 
   event void RadioControl.startDone(error_t error) {
@@ -89,15 +93,27 @@ implementation
   uint8_t count = 0;
 
   event void RadioReceive.dataReceived(SensorData data) {
-    atomic {
+     /*
+      printf("id: %u, seq:%u, hum:%u, light:%u tem:%u, time:%u\n",
+      data.id,
+      data.seq, 
+      data.humidity,
+      data.light,
+      data.temperature,
+      data.timestamp);
+      */
+      atomic {
       if (!uartFull){
         SensorData* sensorPkt = (SensorData*)(call RadioPacket.getPayload(&uartQueueBufs[uartIn], sizeof(SensorData)));
+        sensorPkt->id = data.id;
         sensorPkt->seq = data.seq;
         sensorPkt->humidity = data.humidity;
         sensorPkt->light = data.light;
         sensorPkt->temperature = data.temperature;
+        sensorPkt->timestamp = data.timestamp;
         uartIn = (uartIn + 1) % UART_QUEUE_LEN;
-      
+
+        //call Leds.led2Toggle();
         if (uartIn == uartOut)
           uartFull = TRUE;
 
@@ -110,28 +126,15 @@ implementation
     }
   }
 
-  uint8_t tmpLen;
   
   task void uartSendTask() {
-    uint8_t len;
-    am_id_t id;
-    am_addr_t addr, src;
-    message_t* msg;
     atomic
       if (uartIn == uartOut && !uartFull) {
         uartBusy = FALSE;
         return;
 	    }
 
-    msg = uartQueue[uartOut];
-    tmpLen = len = call RadioPacket.payloadLength(msg);
-    id = call RadioAMPacket.type(msg);
-    addr = call RadioAMPacket.destination(msg);
-    src = call RadioAMPacket.source(msg);
-    call UartPacket.clear(msg);
-    call UartAMPacket.setSource(msg, src);
-
-    if (call UartSend.send[id](addr, uartQueue[uartOut], len) == SUCCESS)
+    if (call UartSend.send[0x30](AM_BROADCAST_ADDR, uartQueue[uartOut], sizeof(SensorData)) == SUCCESS)
       call Leds.led1Toggle();
     else {
       failBlink();
@@ -143,24 +146,17 @@ implementation
     if (error != SUCCESS)
       failBlink();
     else
-      atomic
-	  if (msg == uartQueue[uartOut]){
-	    if (++uartOut >= UART_QUEUE_LEN)
-	      uartOut = 0;
-	    if (uartFull)
-	      uartFull = FALSE;
-	  }
+      atomic {
+        uartOut = (uartOut + 1) % UART_QUEUE_LEN;
+        uartFull = FALSE;
+      }
     post uartSendTask();
   }
 
   event message_t *UartReceive.receive[am_id_t id](message_t *msg, void *payload, uint8_t len) {
-    message_t *ret = msg;
-    bool reflectToken = FALSE;
-
+    call Leds.led0On();
     atomic
       if (!radioFull) {
-        reflectToken = TRUE;
-        ret = radioQueue[radioIn];
         radioQueue[radioIn] = msg;
         if (++radioIn >= RADIO_QUEUE_LEN)
           radioIn = 0;
@@ -173,17 +169,13 @@ implementation
         }
 	    } else
 	      dropBlink();
-
-    if (reflectToken) {
-      //call UartTokenReceive.ReflectToken(Token);
-    }
     
-    return ret;
+    return msg;
   }
 
   task void radioSendTask() {
     Command cmd;
-    ModifyMsg* modifyPkt;
+    Command* cmdPkt;
     
     atomic {
       if (radioIn == radioOut && !radioFull) {
@@ -192,16 +184,32 @@ implementation
 	    }
     }
 
-    modifyPkt = (ModifyMsg*)(call UartPacket.getPayload(&radioQueue[radioOut], sizeof(ModifyMsg)));
-    cmd.time = modifyPkt->new_period;
+    cmdPkt = (Command*)(call UartPacket.getPayload(radioQueue[radioOut], sizeof(Command)));
+    cmd.time = cmdPkt->time;
     
-    if (call RadioSend.sendCommand(cmd) == SUCCESS)
-      call Leds.led0Toggle();
-    else {
+    if (call RadioSend.sendCommand(cmd) == SUCCESS){
+      call Leds.led0Off();
+    } else {
 	    failBlink();
 	    post radioSendTask();
     }
+
+    // if ((call TestSend.send(AM_BROADCAST_ADDR, radioQueue[radioOut], sizeof(Command))) == SUCCESS) {
+    //   call Leds.led0Off();
+    // } else {
+    //   failBlink();
+    //   post radioSendTask();
+    // }
   }
+
+  // event void TestSend.sendDone(message_t *msg, error_t error) {
+  //   if (++radioOut >= RADIO_QUEUE_LEN)
+  //     radioOut = 0;
+  //   if (radioFull)
+  //     radioFull = FALSE;
+  
+  //   post radioSendTask();
+  // }
 
   event void RadioSend.commandSendDone() {
     if (++radioOut >= RADIO_QUEUE_LEN)
