@@ -11,6 +11,7 @@ AM_OSCILLOSCOPE = 0x30
 am = tos.AM()
 stream_data = ['0', '0', '0', '0', '0', '0']
 t = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
+file = open('result.txt', 'w')
 
 class OscilloscopeMsg(tos.Packet):
     def __init__(self, packet = None):
@@ -53,6 +54,7 @@ class BasePlot(object):
         p = am.read()
         if p and p.type == AM_OSCILLOSCOPE:
             msg = OscilloscopeMsg(p.data)
+            file.write(str(msg.id) + ' ' + str(msg.seq) + ' ' + str(msg.temperature) + ' ' + str(msg.humidity) + ' ' + str(msg.light) + ' ' + str(msg.timestamp) + '\n')
             if (msg.id == 100):
                 stream_data[0] = str(msg.temperature)
                 stream_data[1] = str(msg.humidity)
@@ -76,6 +78,7 @@ class BasePlot(object):
         while True:
             period = int(input('Please enter new period:'))
             print(period)
+            t.write(period)
  
     def start(self):
         self.plot_init()
