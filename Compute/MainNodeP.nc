@@ -74,9 +74,9 @@ implementation {
         call AckInterface.requestAck(&reportMsg);
         call AMSend.send(assistNodes[reportNodeIdx], &reportMsg, sizeof(ReportPacket));
     }
-
+    //复用AMSend同时向辅助节点和监听节点发送消息
     event void AMSend.sendDone(message_t* msg, error_t err){
-        bool acked = AckInterface.wasAcked(&reportMsg);
+        bool acked = call AckInterface.wasAcked(&reportMsg);
         if(state != STATE_COMPUTING){
             if(acked){
                 ++reportNodeIdx;
@@ -96,6 +96,7 @@ implementation {
             }
         }
         else{
+            //处于向listen节点发送包的状态
             if(!acked){
                 call AckInterface.requestAck(&reportMsg);
                 call AMSend.send(LISTENER_ID, &reportMsg, sizeof(AnswerPacket));
@@ -140,6 +141,7 @@ implementation {
         int16_t i, j;
         uint32_t tmp;
         for(i = 1; i < COUNT_NUMBERS; ++i){
+            tmp = numbers[i];
             for(j = i - 1; j > 0; --j){
                 if(numbers[j] > tmp){
                     numbers[j + 1] = numbers[j];

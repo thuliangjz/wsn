@@ -1,5 +1,7 @@
 #ifndef DEFS_H
 #define DEFS_H
+
+#define COMM_PORT 0x61
 #define ASSIST_NODE_IDS {100, 200}
 #define MAIN_NODE_ID 300
 #define ASSIST_NODE_COUNT 2
