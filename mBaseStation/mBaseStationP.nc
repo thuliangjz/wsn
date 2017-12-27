@@ -72,6 +72,7 @@ implementation
 
     call RadioControl.start();
     call SerialControl.start();
+    call Leds.led0Off();
   }
 
   event void RadioControl.startDone(error_t error) {
@@ -153,7 +154,7 @@ implementation
   }
 
   event message_t *UartReceive.receive[am_id_t id](message_t *msg, void *payload, uint8_t len) {
-    call Leds.led0Toggle();
+    call Leds.led0On();
     atomic
       if (!radioFull) {
         radioQueue[radioIn] = msg;
@@ -195,7 +196,7 @@ implementation
     // }
 
     if ((call TestSend.send(AM_BROADCAST_ADDR, radioQueue[radioOut], sizeof(Command))) == SUCCESS) {
-      call Leds.led0Toggle();
+      call Leds.led0Off();
     } else {
       failBlink();
       post radioSendTask();
