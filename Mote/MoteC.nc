@@ -2,7 +2,7 @@
 #include "printf.h"
 
 
-#define DEST_NODE_ID 300
+#define DEST_NODE_ID 200
 configuration MoteC {
 }
 implementation {

@@ -14,6 +14,7 @@ module AssistNodeP {
         interface AMPacket;
         interface SplitControl as AMControl;
         interface Boot;
+        interface Leds;
     }
 }
 implementation {
@@ -23,11 +24,19 @@ implementation {
     uint8_t state = STATE_LISTENING;
     bool serving;
     int16_t servingIdx = 0;
-    int16_t idleTime = 0;
+    int16_t numNewpkt = 0;
     int16_t remoteLossTotal = 0;
     message_t msgServe;
 
     event void Boot.booted(){
+        uint16_t i;
+        for(i = 0; i < COUNT_NUMBERS; ++i){
+            numbers[i] = 0;
+        }
+        for(i = 0; i < COUNT_NUMBERS/8; ++i){
+            bmpLocal[i] = 0;
+            bmpRemoteLoss[i] = 0;
+        }
         call AMControl.start();
     }
     event void AMControl.startDone(error_t err){}
@@ -49,6 +58,7 @@ implementation {
         pNumPkt = (NumberPacket*)(call Packet.getPayload(&msgServe, sizeof(NumberPacket)));
         pNumPkt->seq = servingIdx + 1;      //注意这是模拟广播节点传送序列号，从1开始
         pNumPkt->number = numbers[servingIdx];
+        call Leds.led2Toggle();
         call AckInterface.requestAck(&msgServe);
         call AMSend.send(MAIN_NODE_ID, &msgServe, sizeof(NumberPacket));
     }
@@ -75,6 +85,7 @@ implementation {
         uint16_t seq;
         if(state == STATE_LISTENING){
             if(source == LISTENER_ID){
+                call Leds.led0Toggle();
                 pNumPkt = (NumberPacket*)payload;
                 seq = pNumPkt->seq - 1;
                 SET_BMP(bmpLocal, seq);
@@ -93,10 +104,14 @@ implementation {
                 numbers[seq] = pNumPkt->number;
             }
             else{
+                call Leds.led2Toggle();
                 pReportPkt = (ReportPacket*)payload;
                 if(pReportPkt->seq < COUNT_NUMBERS){
                     SET_BMP(bmpRemoteLoss,pReportPkt->seq);
                     ++remoteLossTotal;
+                    if(CHECK_BMP(bmpLocal,pReportPkt->seq)){
+                        call Leds.led1Toggle();
+                    }
                 }
                 else{
                     //Report阶段终止的信号
@@ -109,18 +124,17 @@ implementation {
                 }
             }
         }
-        if(state == STATE_SERVING && source == LISTENER_ID &&
-         !serving){
-            //处于服务状态且serving Task未执行
+        if(state == STATE_SERVING && source == LISTENER_ID){
             pNumPkt = (NumberPacket*)(payload);
             seq = pNumPkt->seq - 1;
-            idleTime++;
+            numNewpkt++;
             SET_BMP(bmpLocal,seq);
+            numbers[seq] = pNumPkt->number;
             //如果检测到主节点确实没有或者有一段时间没有传包了，则启动serveTask
-            if(remoteLossTotal > 0 && (CHECK_BMP(bmpRemoteLoss,seq) || idleTime > MAX_IDLE_TIME)){
+            if(!serving && remoteLossTotal > 0 && (CHECK_BMP(bmpRemoteLoss,seq) || numNewpkt > MAX_IDLE_TIME)){
                 servingIdx = seq;
                 serving = TRUE;
-                idleTime = 0;
+                numNewpkt = 0;
                 post servingTask();
             }
         }
